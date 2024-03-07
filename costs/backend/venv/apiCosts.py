@@ -19,16 +19,30 @@ conn = psycopg2.connect(
 def create_projects_table():
     cursor = conn.cursor()
     cursor.execute("""
-        CREATE TABLE IF NOT EXISTS projects (
-            id SERIAL PRIMARY KEY,
-            name VARCHAR(255) NOT NULL,
-            budget NUMERIC NOT NULL,
-            category_id INTEGER NOT NULL, 
-            category_name VARCHAR(255) NOT NULL
+        SELECT EXISTS (
+            SELECT 1
+            FROM   information_schema.tables 
+            WHERE  table_schema = 'public'
+            AND    table_name = 'projects'
         )
     """)
-    conn.commit()
-    print("Tabela 'projects' criada com sucesso.")
+    table_exists = cursor.fetchone()[0]
+
+    if table_exists:
+        print("Tabela já existe.")
+    else:
+        cursor.execute("""
+            CREATE TABLE projects (
+                id SERIAL PRIMARY KEY,
+                name_client VARCHAR(255),
+                name_project VARCHAR(255) NOT NULL,
+                budget NUMERIC NOT NULL,
+                category_id INTEGER NOT NULL, 
+                category_name VARCHAR(255) NOT NULL
+            )
+        """)
+        conn.commit()
+        print("Tabela criada.")
 
 
 create_projects_table()
@@ -38,13 +52,13 @@ class Category(BaseModel):
     name: str
 
 class Project(BaseModel):
-    name: str
+    id: int
+    name_client: str
+    name_project: str
     budget: float
     category: Category
     
 projects = []
-projects_api_data = read_projects()
-projects.extend(projects_api_data)
 
 categories = [
     {"id": 1, "name": "Infra"},
@@ -56,19 +70,20 @@ categories = [
 @app.get("/projects", response_model=List[Project])
 async def read_projects():
     cursor = conn.cursor()
-    cursor.execute("SELECT name, budget, category_id, category_name FROM projects;")
-    projects_api = []
+    cursor.execute("SELECT id, COALESCE(name_client, 'Desconsiderar') AS name_client, name_project, budget, category_id, category_name FROM projects;")
+    projects = []
     for project_data in cursor.fetchall():
-        name, budget, category_id, category_name = project_data
+        id, name_client, name_project, budget, category_id, category_name = project_data     
         category = Category(id=category_id, name=category_name)
-        project = Project(name=name, budget=budget, category=category)
+        project = Project(id=id, name_client=name_client, name_project=name_project, budget=budget, category=category)
         projects.append(project)
     return projects
+
 
 @app.post("/projects")
 def create_project(project: Project):
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO projects (name, budget, category_id, category_name) VALUES (%s, %s, %s, %s)", (project.name, project.budget, project.category.id, project.category.name))
+    cursor.execute("INSERT INTO projects (name_client, name_project, budget, category_id, category_name) VALUES (%s, %s, %s, %s, %s)", (project.name_client, project.name_project, project.budget, project.category.id, project.category.name))
     conn.commit()
     return projects
 

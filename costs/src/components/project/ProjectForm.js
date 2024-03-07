@@ -44,11 +44,19 @@ function ProjectForm ({handleSubmit, btnText, projectData}){
         <form onSubmit={submit } className={styles.form}>
             <Input 
                 type="text"
+                text="Cliente"
+                name="name_client"
+                placeholder="Insira o cliente"
+                handleOnChange={handleChange}
+                value={project.name_client ? project.name_client : ''}
+            />            
+            <Input 
+                type="text"
                 text="Nome do projeto"
-                name="name"
+                name="name_project"
                 placeholder="Insira o nome do projeto"
                 handleOnChange={handleChange}
-                value={project.name ? project.name : ''}
+                value={project.name_project ? project.name_project : ''}
             />
             <Input 
                 type="number"
