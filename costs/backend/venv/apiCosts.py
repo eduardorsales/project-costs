@@ -57,6 +57,12 @@ class Project(BaseModel):
     name_project: str
     budget: float
     category: Category
+
+class Project_post(BaseModel):
+    name_client: str
+    name_project: str
+    budget: float
+    category: Category
     
 projects = []
 
@@ -70,7 +76,13 @@ categories = [
 @app.get("/projects", response_model=List[Project])
 async def read_projects():
     cursor = conn.cursor()
-    cursor.execute("SELECT id, COALESCE(name_client, 'Desconsiderar') AS name_client, name_project, budget, category_id, category_name FROM projects;")
+    cursor.execute("""SELECT id, 
+                   COALESCE(name_client, 'Desconsiderar') AS name_client, 
+                   name_project, 
+                   budget, 
+                   category_id, 
+                   category_name FROM projects;
+                   """)
     projects = []
     for project_data in cursor.fetchall():
         id, name_client, name_project, budget, category_id, category_name = project_data     
@@ -81,11 +93,43 @@ async def read_projects():
 
 
 @app.post("/projects")
-def create_project(project: Project):
+def create_project(project: Project_post):
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO projects (name_client, name_project, budget, category_id, category_name) VALUES (%s, %s, %s, %s, %s)", (project.name_client, project.name_project, project.budget, project.category.id, project.category.name))
+    cursor.execute("""INSERT INTO projects 
+                   (name_client, name_project, 
+                   budget, category_id, category_name) 
+                   VALUES 
+                   (%s, %s, %s, %s, %s)""",
+                   (project.name_client, project.name_project, 
+                   project.budget, project.category.id, 
+                   project.category.name))
     conn.commit()
-    return projects
+    return {"message": "Projeto criado com sucesso!"}
+
+@app.delete("/projects/{id}")
+def deleteItem_project(id: int):
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM projects WHERE id = %s;", (id,))
+    conn.commit()
+    return {"message": "Remoção bem-sucedida!"}
+
+@app.get("/projects/{id}", response_model=Project)
+async def readItem_project(id: int):
+    cursor = conn.cursor()
+    cursor.execute("""SELECT id, 
+                   COALESCE(name_client, 'Desconsiderar') AS name_client, 
+                   name_project, 
+                   budget, 
+                   category_id, 
+                   category_name FROM projects
+                   WHERE id = %s;
+                   """, (id,))
+    project_data = cursor.fetchone()
+    if project_data:
+        id, name_client, name_project, budget, category_id, category_name = project_data     
+        category = Category(id=category_id, name=category_name)
+        return Project(id=id, name_client=name_client, name_project=name_project, budget=budget, category=category)
+
 
 @app.get("/categories", response_model=List[Category])
 async def read_categories():
